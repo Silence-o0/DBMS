@@ -100,6 +100,7 @@ class Row:
             if not is_valid_time_format(value):
                 raise ValueError
         elif col_type == Type.timeInvl:
+            value = str(value)
             values = value.split('-')
             if not is_valid_time_format(values[0]) or not is_valid_time_format(values[1]):
                 raise ValueError
@@ -108,6 +109,8 @@ class Row:
             sub = time2_seconds - time1_seconds
             if sub < 0:
                 raise ValueError
+        elif col_type == Type.string:
+            value = str(value)
         return value
 
     def validate_row(self) -> List[str]:
@@ -137,7 +140,8 @@ class Table:
         is_all_none = True
         for key, value in data.items():
             if value is not None:
-                value = value.strip()
+                if isinstance(value, str):
+                    value = value.strip()
                 data[key] = value
             if key not in self.columns:
                 print(f"Колонка '{key}' не знайдена у таблиці.")
