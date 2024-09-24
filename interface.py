@@ -7,14 +7,18 @@ from dbclasses import *
 def interface():
     root = tk.Tk()
     root.title("DBMS")
+
     database = None
 
     def create_database():
         nonlocal database
         db_name = simpledialog.askstring("Нова база даних", "Введіть назву нової бази даних:")
-        if db_name:
-            database = Database(db_name)
-            open_main_window()
+        if db_name is not None:
+            try:
+                database = Database(db_name)
+                open_main_window()
+            except ValueError as e:
+                messagebox.showerror("Помилка", str(e))
 
     def load_database():
         nonlocal database
@@ -22,10 +26,13 @@ def interface():
                                                filetypes=(("Database Files", "*.json"), ("All Files", "*.*")))
         try:
             if file_path:
-                database = Database("Uploaded database", file=str(file_path))
-                open_main_window()
+                try:
+                    database = Database("Uploaded database", file=str(file_path))
+                    open_main_window()
+                except ValueError as e:
+                    messagebox.showerror("Помилка", str(e))
         except Exception as e:
-            messagebox.showinfo("Помилка", f"Неможливо відкрити файл. {str(e)}")
+            messagebox.showerror("Помилка", f"Неможливо відкрити файл. {str(e)}")
 
     def open_main_window():
         root.withdraw()
@@ -54,17 +61,21 @@ def interface():
 
         def add_new_table():
             new_table_name = simpledialog.askstring("Нова таблиця", "Введіть назву нової таблиці:")
-            if new_table_name:
-                bool_result = database.create_table(new_table_name)
-                if bool_result:
+            if new_table_name is not None:
+                try:
+                    database.create_table(new_table_name)
                     table_selector.set(new_table_name)
                     menu.add_command(label=new_table_name, command=lambda: table_selector.set(new_table_name))
                     load_table_data()
-                else:
-                    messagebox.showinfo("Помилка", f"Таблиця з такою назвою вже існує")
+                except ValueError as e:
+                    messagebox.showerror("Помилка", str(e))
 
         def add_row():
             if current_table:
+                if not current_table.columns:
+                    messagebox.showerror("Помилка", "Неможливо створити рядок. Будь ласка, створіть принаймні одну колонку.")
+                    return
+
                 row_window = tk.Toplevel()
                 row_window.title("Додати новий рядок")
                 entries = {}
@@ -108,9 +119,7 @@ def interface():
                         current_table.add_row(new_row_data)
                         row_window.destroy()
                         load_table_data()
-                    except ValidError as e:
-                        messagebox.showerror("Помилка", str(e))
-                    except ValueError as e:
+                    except (ValidError, ValueError, AttributeError) as e:
                         messagebox.showerror("Помилка", str(e))
 
                 tk.Button(row_window, text="Зберегти", command=save_row).pack(pady=10)
@@ -122,28 +131,31 @@ def interface():
         def add_column():
             if current_table:
                 new_column_name = simpledialog.askstring("Додати колонку", "Введіть назву нової колонки:")
-                if new_column_name:
-                    type_window = tk.Toplevel()
-                    type_window.title("Обрати тип даних")
+                if new_column_name is not None:
+                    if new_column_name.strip() != "":
+                        type_window = tk.Toplevel()
+                        type_window.title("Обрати тип даних")
 
-                    tk.Label(type_window, text="Оберіть тип даних:").pack(pady=10)
+                        tk.Label(type_window, text="Оберіть тип даних:").pack(pady=10)
 
-                    type_var = tk.StringVar(value="string")
-                    type_selector = ttk.OptionMenu(type_window, type_var, type_var.get(), *[t.value for t in Type])
-                    type_selector.pack(pady=10)
+                        type_var = tk.StringVar(value="string")
+                        type_selector = ttk.OptionMenu(type_window, type_var, type_var.get(), *[t.value for t in Type])
+                        type_selector.pack(pady=10)
 
-                    def confirm_type():
-                        selected_type = Type(type_var.get())
-                        bool_result = current_table.add_column(new_column_name, selected_type)
-                        if bool_result:
-                            load_table_data()
-                            type_window.destroy()
-                        else:
-                            messagebox.showerror("Помилка", "Не вдалося додати рядок.")
+                        def confirm_type():
+                            selected_type = Type(type_var.get())
+                            try:
+                                current_table.add_column(new_column_name, selected_type)
+                                load_table_data()
+                                type_window.destroy()
+                            except ValueError as e:
+                                messagebox.showerror("Помилка", str(e))
 
-                    tk.Button(type_window, text="Обрати тип", command=confirm_type).pack(pady=10)
-                    type_window.grab_set()
-                    type_window.wait_window()
+                        tk.Button(type_window, text="Обрати тип", command=confirm_type).pack(pady=10)
+                        type_window.grab_set()
+                        type_window.wait_window()
+                    else:
+                        messagebox.showerror("Помилка", "Колонка повинна мати назву. Будь ласка, спробуйте ще раз.")
             else:
                 messagebox.showerror("Помилка", "Таблиця не обрана.")
 
@@ -330,6 +342,16 @@ def interface():
             except Exception:
                 messagebox.showinfo("Помилка", f"Неможливо зберегти файл")
 
+        def on_closing():
+            result = messagebox.askyesnocancel("Зберегти зміни", "Ви хочете зберегти поточну таблицю?")
+            if result is None:
+                return
+            elif result:
+                save_to_file()
+                root.destroy()
+            else:
+                root.destroy()
+
         def on_click(event):
             region = data_table.identify_region(event.x, event.y)
             if region == "heading":
@@ -339,6 +361,14 @@ def interface():
             region = data_table.identify_region(event.x, event.y)
             if region != "heading":
                 edit_row()
+
+        def on_row_click(event):
+            selected_item = data_table.selection()
+            if not selected_item:
+                return
+
+        main_window.protocol("WM_DELETE_WINDOW", on_closing)
+        root.protocol("WM_DELETE_WINDOW", on_closing)
 
         header_frame = tk.Frame(main_window)
         header_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
@@ -372,6 +402,7 @@ def interface():
         data_table.bind("<Double-1>", on_double_click)
         data_table.bind("<Delete>", lambda event: delete_row())
         data_table.bind("<Button-1>", on_click)
+        data_table.bind("<ButtonRelease-1>", on_row_click)
 
         table_frame = tk.Frame(main_window)
         table_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)

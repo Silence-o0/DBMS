@@ -131,6 +131,8 @@ class Table:
     def add_row(self, data: Dict[str, Any]) -> bool:
         new_row = Row()
         new_row.column_types = self.columns
+        if not self.columns:
+            raise AttributeError("Неможливо створити рядок. Будь ласка, створіть принаймні одну колонку.")
 
         is_all_none = True
         for key, value in data.items():
@@ -167,13 +169,16 @@ class Table:
         return True
 
     def add_column(self, column_name: str, column_type: Type) -> bool:
+        if column_name is None or not column_name.strip():
+            raise ValueError("Колонка повинна мати назву. Будь ласка, спробуйте ще раз.")
         if column_name not in self.columns:
             self.columns[column_name] = column_type
             for row in self.rows.values():
                 row.column_types[column_name] = column_type
                 row.values[column_name] = None
-            return True
-        return False
+        else:
+            raise ValueError("Колонка з такою назвою вже існує.")
+        return True
 
     def delete_column(self, col_name: str) -> bool:
         if col_name in self.columns:
@@ -198,6 +203,8 @@ class Table:
     def table_difference(self, table2: 'Table') -> List[Row]:
         if self.columns != table2.columns:
             raise ValueError("Таблиці мають різні колонки. Оберіть інші таблиці.")
+        if self.name == table2.name:
+            raise ValueError("Ви обрали одну таблицю. Будь ласка, оберіть різні, щоб отримати їх різницю.")
 
         result_list = []
         for id1, row1 in self.rows.items():
@@ -213,17 +220,22 @@ class Table:
 
 class Database:
     def __init__(self, name: str, file=None):
+        if name is None or not name.strip():
+            raise ValueError("База даних повинна мати назву. Будь ласка, спробуйте ще раз.")
         self.name = name
         self.tables: Dict[str, Table] = {}
         if file:
             self.load_from_file(file)
 
     def create_table(self, table_name: str) -> bool:
+        if table_name is None or not table_name.strip():
+            raise ValueError("Таблиця повинна мати назву. Будь ласка, спробуйте ще раз.")
         if table_name not in self.tables.keys():
             table = Table(table_name)
             self.tables[table_name] = table
-            return True
-        return False
+        else:
+            raise ValueError("Таблиця з такою назвою вже існує.")
+        return True
 
     def load_from_file(self, file_path: str):
         with open(file_path, 'r') as f:
