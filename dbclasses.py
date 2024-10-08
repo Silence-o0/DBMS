@@ -1,9 +1,8 @@
 import json
-import uuid
-from uuid import uuid4
-from enum import Enum
-from typing import List, Dict, Any
 import re
+import uuid
+from enum import Enum
+from typing import Any, List
 
 
 class Type(Enum):
@@ -26,11 +25,11 @@ class ValidError(Exception):
 
 class Row:
     def __init__(self):
-        self.id = uuid4()
-        self.values: Dict[str, Any] = {}
-        self.column_types: Dict[str, Type] = {}
+        self.id = uuid.uuid4()
+        self.values: dict[str, Any] = {}
+        self.column_types: dict[str, Type] = {}
 
-    def edit_row(self, data: Dict[str, Any]) -> bool:
+    def edit_row(self, data: dict[str, Any]) -> bool:
         demo_row = Row()
         demo_row.column_types = self.column_types
         new_valid_dict = {}
@@ -44,10 +43,13 @@ class Row:
                 print(f"Колонка '{key}' не знайдена у таблиці.")
                 return False
             if self.column_types[key] == Type.timeInvl:
-                both_val = value.split('-')
-                if both_val[0] != "" or both_val[1] != "":
-                    is_all_none = False
-                    demo_row.values[key] = value
+                if value != '' and value is not None:
+                    both_val = value.split('-')
+                    if both_val[0] != "" or both_val[1] != "":
+                        is_all_none = False
+                        demo_row.values[key] = value
+                    else:
+                        demo_row.values[key] = None
                 else:
                     demo_row.values[key] = None
             elif self.column_types[key] == Type.string:
@@ -128,10 +130,10 @@ class Row:
 class Table:
     def __init__(self, name: str):
         self.name = name
-        self.columns: Dict[str, Type] = {}
-        self.rows: Dict[uuid.UUID, Row] = {}
+        self.columns: dict[str, Type] = {}
+        self.rows: dict[uuid.UUID, Row] = {}
 
-    def add_row(self, data: Dict[str, Any]) -> bool:
+    def add_row(self, data: dict[str, Any]) -> bool:
         new_row = Row()
         new_row.column_types = self.columns
         if not self.columns:
@@ -227,7 +229,7 @@ class Database:
         if name is None or not name.strip():
             raise ValueError("База даних повинна мати назву. Будь ласка, спробуйте ще раз.")
         self.name = name
-        self.tables: Dict[str, Table] = {}
+        self.tables: dict[str, Table] = {}
         if file:
             self.load_from_file(file)
 
